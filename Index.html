@@ -61,7 +61,7 @@
                 `;
                 document.body.appendChild(formContainer);
 
-                document.getElementById('submitBtn').onclick = async function() {
+                document.getElementById('submitBtn').addEventListener('click', async function() {
                     const url = document.getElementById('urlInput').value;
                     if (!url) {
                         alert('Please enter a URL.');
@@ -70,7 +70,7 @@
 
                     const { base64Url, hash } = await encodeAndHash(url);
                     alert(`Your URL: ${window.location.origin}${window.location.pathname}?url=${base64Url}&key=${hash}`);
-                };
+                });
 
                 return;
             }
