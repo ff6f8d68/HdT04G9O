@@ -15,38 +15,99 @@
             height: 100vh;
             border: none;
         }
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .form-container input {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        .form-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
     </style>
-</head>
-<body>
     <script>
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const url = urlParams.get('url');
+        function md5(string) {
+            return crypto.subtle.digest("MD5", new TextEncoder().encode(string)).then(buffer => {
+                return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            });
+        }
 
-            if (!url) {
-                document.body.innerHTML = 'No URL specified in the query parameters.';
+        function encodeAndHash(url) {
+            const base64Url = btoa(url);
+            return md5(base64Url).then(hash => {
+                return { base64Url, hash };
+            });
+        }
+
+        window.onload = async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const base64Url = urlParams.get('url');
+            const providedHash = urlParams.get('key');
+
+            if (!base64Url || !providedHash) {
+                const formContainer = document.createElement('div');
+                formContainer.classList.add('form-container');
+                formContainer.innerHTML = `
+                    <input type="text" id="urlInput" placeholder="Enter URL" />
+                    <button id="submitBtn">Submit</button>
+                `;
+                document.body.appendChild(formContainer);
+
+                document.getElementById('submitBtn').onclick = async function() {
+                    const url = document.getElementById('urlInput').value;
+                    if (!url) {
+                        alert('Please enter a URL.');
+                        return;
+                    }
+
+                    const { base64Url, hash } = await encodeAndHash(url);
+                    alert(`Your URL: ${window.location.origin}${window.location.pathname}?url=${base64Url}&key=${hash}`);
+                };
+
                 return;
             }
 
-            // Create iframe and set its src attribute
-            const iframe = document.createElement('iframe');
-            iframe.src = url;
-            document.body.appendChild(iframe);
+            try {
+                const decodedUrl = atob(base64Url);
+                const calculatedHash = await md5(decodedUrl);
 
-            // Listen for messages from iframe
-            window.addEventListener('message', (event) => {
-                // Ensure the message is from the expected origin
-                if (event.origin === new URL(url).origin) {
-                    const data = event.data;
-                    if (data && typeof data.title === 'string') {
-                        document.title = data.title; // Update the page title
-                        console.log('Icon:', data.icon); // Optionally log or use the icon URL
-                    } else {
-                        console.error('Title is undefined or message format is incorrect');
-                    }
+                if (calculatedHash !== providedHash) {
+                    document.body.innerHTML = 'Invalid key provided.';
+                    return;
                 }
-            });
+
+                // Create iframe and set its src attribute
+                const iframe = document.createElement('iframe');
+                iframe.src = decodedUrl;
+                document.body.appendChild(iframe);
+
+                // Listen for messages from iframe
+                window.addEventListener('message', (event) => {
+                    // Ensure the message is from the expected origin
+                    if (event.origin === new URL(decodedUrl).origin) {
+                        const data = event.data;
+                        if (data && typeof data.title === 'string') {
+                            document.title = data.title; // Update the page title
+                            console.log('Icon:', data.icon); // Optionally log or use the icon URL
+                        } else {
+                            console.error('Title is undefined or message format is incorrect');
+                        }
+                    }
+                });
+            } catch (error) {
+                document.body.innerHTML = 'Error decoding URL or calculating hash.';
+            }
         };
     </script>
+</head>
+<body>
 </body>
 </html>
